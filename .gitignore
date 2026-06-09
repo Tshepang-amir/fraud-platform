@@ -41,6 +41,7 @@ mlartifacts/
 *.onnx
 *.joblib
 *.png
+!docs/*.png
 catboost_info/
 
 # ── Environment / secrets (Rule 3) ────────────────────────────────────────

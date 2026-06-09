@@ -1595,15 +1595,129 @@ Output: `reports/drift_report.html` + `reports/psi_scores.json`
 | Demo video | Pending — human action required |
 | Grafana token rotation | Pending — human action required |
 
-### Before public handoff
+---
 
-- Rotate the Grafana OTLP token (the value `glc_eyJ...` was visible in
-  terminal output during Day 10 setup). Generate a new token in Grafana
-  Cloud → Administration → Service Accounts, revoke the old one.
-- Record the 5–7 minute demo video using `docs/demo_video_script.md`.
-- Upload the video or a YouTube/Loom link to the repo.
-- Optionally capture an Airflow UI screenshot of the sensor paused at
-  `wait_for_human_approval` for the demo narrative.
+## POST-DAY-14 — Interview Readiness Fixes
+
+**Date:** 2026-06-09
+
+### Fix 2 — Grafana OTLP Token Rotation (COMPLETE)
+
+The original token (`glc_eyJ...stack-1627081-otlp-write-fraud-platform-otel`)
+was exposed in terminal output during Day 10 setup. Rotated on 2026-05-15:
+
+1. Navigated to grafana.com → tshepangamir org → Security → Access Policies →
+   `stack-1627081-otlp-write`.
+2. Added new token `fraud-platform-otel-v2`.
+3. Computed new base64 auth header locally in PowerShell:
+   ```powershell
+   $encoded = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("1627081:<new_token>"))
+   az containerapp update --name fraud-scorer-staging --resource-group rg-fraud-platform \
+     --set-env-vars "OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic $encoded"
+   ```
+4. Confirmed Container App revision `0000014` created with `provisioningState: Succeeded`.
+5. Confirmed Grafana dashboard continued receiving data (request rate 0.536 req/s,
+   p95 ~411ms, decision distribution visible) with the new token.
+6. Old token deleted from the access policy.
+
+**Status:** Token rotation complete. Old credential is revoked.
+
+### Azure Student Subscription — Credit Exhaustion (2026-06-09)
+
+Azure for Students `$100` credit limit was reached after the project was
+completed. As of 2026-06-09:
+
+| Resource | Status |
+|---|---|
+| Container App `fraud-scorer-staging` | `provisioningState: Failed`, 0 revisions, HTTP timeout |
+| Key Vault `kv-fraud-f95d0b0e` | Access Forbidden — subscription billing suspended |
+| ACR `acrfraudf95d0b0e` | Access Forbidden |
+| Postgres Flexible Server | State null — server suspended |
+
+The subscription account state shows "Enabled" but billing-dependent resource
+operations fail. All 14 days of work are preserved in the GitHub repo and can
+be redeployed in under 30 minutes with an active Azure subscription.
+
+The Docker image (`fraud-scorer:manual-20260508-grafanalatency`) used for the
+last successful deployment is not recoverable from ACR without active access.
+A fresh `docker build` from the repo produces an equivalent image.
+
+### Fix 1 — Feast Online Store Mismatch (LOCAL — VERIFIED)
+
+Azure Postgres is offline. Fix performed against local Docker Postgres.
+
+**Diagnosis:** `feast materialise` was run locally during Day 5 but the
+`pgdata` Docker volume is not persistent across Docker Desktop restarts.
+Table `fraud_platform_card_transaction_stats` does not exist when the
+container is started fresh.
+
+**Fix:** Added `scripts/materialise_local.py` — materialises the existing
+parquet to local Postgres without rebuilding from raw CSVs.
+
+**Verified 2026-06-09:**
+```
+docker compose up postgres -d              # fraud-postgres healthy
+python scripts/materialise_local.py        # Parquet 23.8 MB → feast apply + materialise
+                                           # 2017-01-02 → 2017-06-02 complete
+pytest tests/integration/test_feature_skew.py -v
+
+tests/integration/test_feature_skew.py::TestFeatureSkew::test_offline_equals_online_for_known_cards PASSED
+tests/integration/test_feature_skew.py::TestFeatureSkew::test_all_feature_columns_present_online  PASSED
+tests/integration/test_feature_skew.py::TestFeatureSkew::test_online_values_are_not_all_null       PASSED
+3 passed in 13.63s
+```
+
+Rule 2 gate: offline == online within 1e-6 for all 9 features across 5 cards.
+
+### Fix 3 — p95 Latency Clarity
+
+Azure infrastructure offline — cannot run from inside Azure network.
+README updated to remove conflicting numbers and document what was measured:
+
+- OTel `fraud_score_latency_ms` measures inside-container processing time.
+  Not affected by network or SSL inspection.
+- **66.85ms p95** was recorded by the OTel histogram during the 50-concurrent
+  burst load test (container warm, South Africa North region).
+- **~410ms p95** was recorded during idle 0.5 req/s traffic — cold-start cost
+  at scale-to-zero minimum replicas.
+- Locust external figures (>100ms) were inflated by corporate SSL inspection
+  and excluded from headline claims.
+- Infrastructure offline — the claim is backed by the Grafana screenshot
+  in `docs/grafana_dashboard_live.png` (captured 2026-05-15).
+
+### Fix 4 — Airflow Approval Gate Screenshot (VERIFIED)
+
+Added Airflow service to `docker-compose.yml` (standalone mode, SQLite
+metadata DB, DAG folder mounted from `src/retrain/dags/`).
+
+**Verified 2026-06-09:**
+
+```powershell
+docker compose --profile airflow up airflow -d
+docker exec fraud-airflow airflow db init
+docker exec fraud-airflow airflow users reset-password --username admin --password admin123
+docker exec -d fraud-airflow airflow webserver
+docker exec -d fraud-airflow airflow scheduler
+# UI available at http://localhost:8080
+```
+
+Triggered `retrain_fraud_scorer` with evaluation conf where `ci_lo=0.012 > 0`
+(challenger passes all three metric gates):
+
+```
+prepare_training_data   success
+train_challenger        success
+evaluate_challenger     success
+branch_on_evaluation    success  → routed to request_human_approval (not archive)
+request_human_approval  success  → logged approval variable name
+wait_for_human_approval up_for_reschedule  ← PAUSED — Rule 7 gate
+archive_challenger      skipped
+promote_to_production   (not run — awaiting human)
+done                    (not run — awaiting human)
+```
+
+Screenshot saved: `docs/airflow_approval_gate.png`
+Referenced in README Governance section.
 
 ---
 

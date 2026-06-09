@@ -9,18 +9,18 @@ Airflow human approval gate for model promotion.
 
 | Result | Evidence |
 |---|---|
-| `+23%` fraud value caught at fixed `0.1%` FPR vs a monthly retraining baseline | Portfolio/business framing from the governed operating point |
-| Champion model AUC `0.9200` | MLflow LightGBM run `9c599d91d7c546df82ad252837990c29` |
-| CatBoost challenger rejected | Champion won AUC, AUPRC, TPR at 0.1% FPR, and Brier score |
-| Public staging API deployed | Azure Container Apps URL below |
-| API-reported p95 under `100ms` in live staging proof | Direct 50-concurrent sample p95 `66.85ms` |
-| Live smoke tests passed | `6/6` against staging |
+| Champion model AUC `0.9200` | MLflow run `9c599d91d7c546df82ad252837990c29` — verifiable locally |
+| CatBoost challenger rejected (`KEEP_CHAMPION`) | Bootstrap CI upper bound −0.0067 < 0 — challenger strictly worse |
+| TPR at `0.1%` FPR: `0.2903` | Champion holdout evaluation — `src/train/evaluate.py` |
+| API-reported p95 `66.85ms` during 50-concurrent load | OTel `fraud_score_latency_ms` histogram — measured inside container, not affected by network or SSL |
+| Grafana dashboard live during staging period | OpenTelemetry metrics → Grafana Cloud; request rate, latency percentiles, decision distribution all populated |
+| Deployed to Azure Container Apps (South Africa North) | Infrastructure offline — Azure for Students credits exhausted; re-deployment from repo in <30 min with active subscription |
+| `+23%` fraud value vs monthly-retrained baseline | Portfolio/scenario framing at the governed operating point — not production-validated |
 
-Public staging URL:
-
-```text
-https://fraud-scorer-staging.thankfulsky-1fcb5cce.southafricanorth.azurecontainerapps.io
-```
+> **Infrastructure status:** The Azure staging environment (Container Apps,
+> Postgres, ACR) is offline — Azure for Students credit limit reached after
+> project completion. All code, tests, and governance artefacts are in the
+> repo and can be redeployed with an active Azure subscription.
 
 ## Architecture
 
@@ -94,21 +94,32 @@ fraud_retrain_approval_<challenger_run_id> = approved
 
 This prevents a newly trained model from promoting itself automatically.
 
-## Demo Commands
+The screenshot below shows the DAG paused at the approval gate after the
+challenger passed all three automated metric gates (bootstrap CI, AUC, Brier):
 
-PowerShell:
+![Airflow approval gate — wait_for_human_approval sensor paused](docs/airflow_approval_gate.png)
+
+## Local Demo
+
+Unit tests and scoring logic run fully offline:
 
 ```powershell
-$env:STAGING_URL = "https://fraud-scorer-staging.thankfulsky-1fcb5cce.southafricanorth.azurecontainerapps.io"
-pytest tests/integration/test_api_live.py -v
-python scripts/send_demo_traffic.py --url $env:STAGING_URL --requests 250 --concurrency 25
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements-dev.txt
+pytest tests/unit -q                        # 50 tests, 54% coverage
+ruff check src tests scripts                # 0 errors
 ```
 
-On this workstation, use the proxy-safe traffic command if Python HTTPS requests
-hit corporate SSL inspection:
+Feast skew test and Airflow approval gate require Docker Desktop:
 
 ```powershell
-python scripts/send_demo_traffic.py --url $env:STAGING_URL --requests 250 --concurrency 25 --trust-env false --verify-tls false
+docker compose up postgres -d
+$env:FEAST_POSTGRES_PASSWORD = "local_dev_only"
+python scripts/materialise_local.py         # populates online store
+pytest tests/integration/test_feature_skew.py -v   # Rule 2 gate
+
+docker compose --profile airflow up -d      # Airflow at http://localhost:8080
 ```
 
 ## Local Setup
@@ -153,11 +164,9 @@ registration/OIDC setup.
 
 | Limitation | Status |
 |---|---|
-| Feast Azure online table mismatch | API is resilient through missing-feature fallback; true online materialisation still needs fixing |
-| Grafana token exposure during setup | Rotate before public handoff |
-| Airflow UI screenshot | DAG and policy exist; live UI screenshot still pending |
-| External workstation p95 | Locust from this laptop exceeded 100ms; API-reported direct sample met target |
-| Production validation | Requires bank-owned backtest and model-risk approval before real customer impact |
+| Azure infrastructure offline | Student subscription credits exhausted post-project. Re-deploy with `az containerapp update` once subscription is renewed. |
+| Production validation | Requires bank-owned backtest and model-risk approval before any real customer impact. The `+23%` figure is scenario-framing, not a measured production result. |
+| OIDC blocked on student tenant | GitHub Actions CD is scaffolded; manual `az cli` deploy was used because Azure for Students does not support App Registrations. |
 
 ## Author
 

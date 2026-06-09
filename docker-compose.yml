@@ -33,5 +33,42 @@ services:
       postgres:
         condition: service_healthy
 
+  # ── Airflow (profile: airflow) ──────────────────────────────────────────
+  # Start with: docker compose --profile airflow up -d
+  # Web UI: http://localhost:8080  (admin / admin)
+  # To trigger the retraining DAG and demonstrate Rule 7 approval gate:
+  #   1. Enable DAG: retrain_fraud_scorer
+  #   2. Trigger with conf that passes metric gates (ci_lo > 0):
+  #      {"evaluation": {"champion_metrics": {"auc": 0.920, "brier": 0.0349},
+  #        "challenger_metrics": {"auc": 0.925, "brier": 0.033},
+  #        "bootstrap_ci": {"ci_lo": 0.012, "ci_hi": 0.048}}}
+  #   3. DAG reaches wait_for_human_approval sensor — screenshot the paused state
+  airflow:
+    image: apache/airflow:2.10.0-python3.11
+    container_name: fraud-airflow
+    profiles: ["airflow"]
+    command: standalone
+    ports:
+      - "8080:8080"
+    environment:
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      AIRFLOW__WEBSERVER__SECRET_KEY: "fraud-platform-local-dev-only"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: admin
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+    volumes:
+      - ./src/retrain/dags:/opt/airflow/dags:ro
+      - airflow_db:/opt/airflow
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
 volumes:
   pgdata:
+  airflow_db:
