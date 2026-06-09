@@ -13,7 +13,7 @@ Airflow human approval gate for model promotion.
 | CatBoost challenger rejected (`KEEP_CHAMPION`) | Bootstrap CI upper bound −0.0067 < 0 — challenger strictly worse |
 | TPR at `0.1%` FPR: `0.2903` | Champion holdout evaluation — `src/train/evaluate.py` |
 | API-reported p95 `66.85ms` during 50-concurrent load | OTel `fraud_score_latency_ms` histogram — measured inside container, not affected by network or SSL |
-| Grafana dashboard live during staging period | OpenTelemetry metrics → Grafana Cloud; request rate, latency percentiles, decision distribution all populated |
+| Grafana dashboard live during staging period | [Screenshot](docs/grafana_dashboard_live.png) — request rate 0.536 req/s, p95 411ms, decision distribution (APPROVE + REVIEW), OTel pipeline confirmed |
 | Deployed to Azure Container Apps (South Africa North) | Infrastructure offline — Azure for Students credits exhausted; re-deployment from repo in <30 min with active subscription |
 | `+23%` fraud value vs monthly-retrained baseline | Portfolio/scenario framing at the governed operating point — not production-validated |
 
