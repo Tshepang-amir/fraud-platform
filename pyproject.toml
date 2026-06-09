@@ -1,0 +1,211 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fraud-platform"
+version = "0.1.0"
+description = "Production-grade real-time card fraud scoring platform on Azure"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [
+    {name = "Tsapang Mashego"},
+]
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.6.0",
+    "lightgbm>=4.3.0",
+    "catboost>=1.2.3",
+    "mlflow>=2.11.0",
+    "feast>=0.38.0",
+    "evidently>=0.4.15",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "scikit-learn>=1.4.0",
+    "great-expectations>=0.18.0",
+    "opentelemetry-api>=1.23.0",
+    "opentelemetry-sdk>=1.23.0",
+    "opentelemetry-instrumentation-fastapi>=0.44b0",
+    "azure-eventhub>=5.11.0",
+    "azure-storage-file-datalake>=12.14.0",
+    "azure-identity>=1.15.0",
+    "azure-keyvault-secrets>=4.8.0",
+    "psycopg2-binary>=2.9.9",
+    "httpx>=0.27.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff==0.15.12",
+    "mypy>=1.9.0",
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.23.0",
+    "hypothesis>=6.98.0",
+    "pre-commit>=3.6.0",
+    "detect-secrets>=1.4.0",
+    "locust>=2.23.0",
+]
+
+# ---------------------------------------------------------------------------
+# Ruff — linting and formatting
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py311"
+line-length = 99
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort
+    "N",     # pep8-naming
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "SIM",   # flake8-simplify
+    "S",     # flake8-bandit (security)
+    "T20",   # flake8-print (no prints in prod code)
+    "RUF",   # Ruff-specific rules
+]
+ignore = [
+    "S101",  # allow assert in tests
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "T20", "E402"]  # allow assert, print, and env-before-import in tests
+"src/ingest/paysim_to_ieee.py" = ["T20"]  # allow print in demo script
+"src/ingest/bronze_validation.py" = ["T20"]  # CLI validation report
+"src/train/train_lgbm.py" = ["T20"]  # CLI training summary
+"src/train/train_catboost.py" = ["T20"]  # CLI training summary
+"src/train/feast_materialise.py" = ["T20"]  # CLI completion summary
+"src/train/evaluate.py" = ["T20"]          # CLI comparison table printed to stdout
+"src/ingest/eventhub_producer.py" = ["T20"]  # CLI completion line printed to stdout
+"tests/load/*.py" = ["S311"]  # pseudo-random is intentional in load test data generation
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+# ---------------------------------------------------------------------------
+# mypy — static type checking
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+namespace_packages = true
+explicit_package_bases = true
+
+[[tool.mypy.overrides]]
+module = [
+    "lightgbm",
+    "lightgbm.*",
+    "catboost",
+    "catboost.*",
+    "mlflow",
+    "mlflow.*",
+    "feast",
+    "feast.*",
+    "evidently",
+    "evidently.*",
+    "great_expectations",
+    "great_expectations.*",
+    "azure",
+    "azure.*",
+    "locust",
+    "locust.*",
+    "pandas",
+    "pandas.*",
+    "sklearn",
+    "sklearn.*",
+    "matplotlib",
+    "matplotlib.*",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "src.ingest.bronze_validation"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "src.ingest.azure_function.function_app"
+disallow_untyped_decorators = false
+
+# ---------------------------------------------------------------------------
+# pytest — test configuration
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-ra",            # show summary of all results except passed
+    "--strict-markers",
+    "-p",
+    "no:cacheprovider",
+    "--tb=short",
+    "-q",
+    "--cov=src",
+    "--cov-report=term-missing",
+    # --cov-fail-under=50 intentionally omitted from global addopts:
+    # integration tests have 0% src coverage (they test external services).
+    # Enforce the threshold only for unit tests:
+    #   pytest tests/ -m "not integration" --cov-fail-under=50
+]
+markers = [
+    "unit: fast unit tests (deselect with '-m \"not unit\"')",
+    "integration: integration tests requiring external services",
+    "load: load/performance tests",
+    "slow: tests that take > 30s",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+# ---------------------------------------------------------------------------
+# coverage — exclude files that require real infrastructure to execute
+# (training scripts need IEEE-CIS data + MLflow; pipeline scripts need
+#  Postgres/Feast/GE; these are covered by integration tests, not unit tests)
+# ---------------------------------------------------------------------------
+[tool.coverage.run]
+omit = [
+    "src/train/train_lgbm.py",
+    "src/train/train_catboost.py",
+    "src/train/evaluate.py",
+    "src/train/feast_materialise.py",
+    "src/ingest/bronze_validation.py",
+    "src/ingest/azure_function/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]

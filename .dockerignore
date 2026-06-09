@@ -1,0 +1,40 @@
+# ── Virtual environments ───────────────────────────────────────────────────────
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── Data — raw CSVs are too large to bundle; models are in mlruns/ ────────────
+data/raw/
+data/paysim/
+data/feast/
+
+# ── Dev / local artefacts ──────────────────────────────────────────────────────
+notebooks/
+.git/
+.github/
+docs/
+model_cards/
+governance/
+infra/
+tests/
+scripts/
+calibration_curve.png
+feature_importance.png
+*.log
+*.tmp
+
+# ── Feast local registry — rebuilt in the container at startup ─────────────────
+data/registry.db
+feature_repo/feature_store.local.yaml
+
+# ── Secrets baseline (not needed in image) ─────────────────────────────────────
+.secrets.baseline
+
+# ── OS artefacts ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

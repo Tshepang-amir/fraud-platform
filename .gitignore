@@ -1,0 +1,83 @@
+# ── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+.coverage
+htmlcov/
+.hypothesis/
+.pytest_cache/
+.ruff_cache/
+.pre-commit-cache/
+.hypothesis/
+*.log
+
+# ── Virtual environments ───────────────────────────────────────────────────
+.venv/
+venv/
+ENV/
+
+# ── IDE ────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Data (do NOT commit datasets) ──────────────────────────────────────────
+data/
+*.csv
+*.parquet
+*.pkl
+*.h5
+*.feather
+!src/dbt_fraud/**/*.sql
+
+# ── Model artifacts ────────────────────────────────────────────────────────
+mlruns/
+mlartifacts/
+*.onnx
+*.joblib
+*.png
+catboost_info/
+
+# ── Environment / secrets (Rule 3) ────────────────────────────────────────
+.env
+.env.*
+*.pem
+*.key
+!.env.example
+
+# ── Terraform ──────────────────────────────────────────────────────────────
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+*.tfvars
+!*.tfvars.example
+backend.hcl
+
+# ── OS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Notebooks ──────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── Feast ──────────────────────────────────────────────────────────────────
+feature_repo/data/
+
+# ── Claude Code operating instructions (local dev tool config) ─────────────
+CLAUDE.md
+
+# ── Internal project brief (planning doc, not portfolio content) ───────────
+docs/fraud_platform_claude_code_brief.md
+
+# ── Generated reports (keep JSON proofs, skip large HTML) ──────────────────
+reports/*.html
+
+# ── Test artifacts ─────────────────────────────────────────────────────────
+pytest-of-*/
+pytest-of-Tsapang.Mashego/

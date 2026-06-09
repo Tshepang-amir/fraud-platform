@@ -1,0 +1,33 @@
+# Feast Feature Store Configuration — PRODUCTION (Azure)
+#
+# This file is copied over feature_store.yaml in the Docker image (see Dockerfile).
+# All connection parameters are read from environment variables injected by
+# Container Apps secrets/environment settings.
+#
+# Required environment variables in Container Apps:
+#   FEAST_ONLINE_STORE_HOST     = psql-fraud-f95d0b0e.postgres.database.azure.com
+#   FEAST_ONLINE_STORE_PORT     = 5432
+#   FEAST_ONLINE_STORE_USER     = fraudadmin
+#   FEAST_POSTGRES_PASSWORD     = <from Key Vault secret postgres-password>
+#   FEAST_ONLINE_STORE_SSLMODE  = require
+#
+# For local dev, use feature_store.yaml (localhost:5433) instead.
+
+project: fraud_platform
+registry: data/registry.db
+provider: local
+
+online_store:
+  type: postgres
+  host: ${FEAST_ONLINE_STORE_HOST}
+  port: ${FEAST_ONLINE_STORE_PORT}
+  database: fraud_platform
+  db_schema: public
+  user: ${FEAST_ONLINE_STORE_USER}
+  password: ${FEAST_POSTGRES_PASSWORD}
+  sslmode: ${FEAST_ONLINE_STORE_SSLMODE}
+
+offline_store:
+  type: file
+
+entity_key_serialization_version: 3

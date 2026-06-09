@@ -1,0 +1,200 @@
+name: CD
+
+# Deploys to Azure on every push to main, after CI passes.
+#
+# ── OIDC SETUP (one-time, done in Azure portal) ─────────────────────────────
+# 1. Azure portal → Entra ID → App Registrations → New Registration
+#    Name: fraud-platform-github-oidc
+# 2. Certificates & Secrets → Federated Credentials → Add Credential
+#    Provider: GitHub Actions
+#    Organisation: Tshepang-amir   Repository: fraud-platform   Branch: main
+# 3. Subscriptions → 6ed44d73... → IAM → Add Role Assignment
+#    Role: Contributor   Member: fraud-platform-github-oidc
+# 4. GitHub repo Settings → Secrets and variables → Variables (not secrets):
+#    AZURE_CLIENT_ID        = <App Registration client ID>
+#    AZURE_TENANT_ID        = 92454335-564e-4ccf-b0b0-24445b8c03f7
+#    AZURE_SUBSCRIPTION_ID  = 6ed44d73-c305-4a7f-b5b1-606a22f98490
+#    ACR_NAME               = acrfraudf95d0b0e
+#    RESOURCE_GROUP         = rg-fraud-platform
+#    CONTAINER_APP_ENV      = cae-fraud-f95d0b0e
+#    POSTGRES_FQDN          = psql-fraud-f95d0b0e.postgres.database.azure.com
+#    KEYVAULT_NAME          = kv-fraud-f95d0b0e
+#    STAGING_URL            = https://<app-fqdn>  (set after first deploy)
+#
+# Until AZURE_CLIENT_ID is set all deploy jobs are skipped automatically.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write  # required for OIDC token exchange
+
+env:
+  IMAGE: "${{ vars.ACR_NAME }}.azurecr.io/fraud-scorer:${{ github.sha }}"
+  APP_STAGING: fraud-scorer-staging
+  APP_PROD: fraud-scorer-prod
+
+# ── Build + push ───────────────────────────────────────────────────────────────
+jobs:
+  build-push:
+    name: Build + Push to ACR
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    if: vars.AZURE_CLIENT_ID != ''
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push to ACR
+        run: |
+          az acr login --name "${{ vars.ACR_NAME }}"
+          docker build -t "${{ env.IMAGE }}" .
+          docker push "${{ env.IMAGE }}"
+          docker tag  "${{ env.IMAGE }}" "${{ vars.ACR_NAME }}.azurecr.io/fraud-scorer:latest"
+          docker push "${{ vars.ACR_NAME }}.azurecr.io/fraud-scorer:latest"
+
+# ── Deploy staging ─────────────────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: build-push
+    environment: staging
+    if: vars.AZURE_CLIENT_ID != ''
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Fetch Postgres password from Key Vault
+        id: kv
+        run: |
+          PG_PASS=$(az keyvault secret show \
+            --vault-name "${{ vars.KEYVAULT_NAME }}" \
+            --name postgres-password --query value -o tsv)
+          echo "::add-mask::$PG_PASS"
+          echo "pg_pass=$PG_PASS" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update staging Container App
+        run: |
+          RG="${{ vars.RESOURCE_GROUP }}"
+          APP="${{ env.APP_STAGING }}"
+          IMG="${{ env.IMAGE }}"
+          PG_FQDN="${{ vars.POSTGRES_FQDN }}"
+          PG_PASS="${{ steps.kv.outputs.pg_pass }}"
+          DSN="postgresql://fraudadmin:${PG_PASS}@${PG_FQDN}:5432/fraud_platform?sslmode=require"
+          ACR_USER=$(az acr credential show --name "${{ vars.ACR_NAME }}" --query username -o tsv)
+          ACR_PASS=$(az acr credential show --name "${{ vars.ACR_NAME }}" \
+                       --query "passwords[0].value" -o tsv)
+
+          COMMON_ARGS=(
+            --name "$APP"
+            --resource-group "$RG"
+          )
+
+          if az containerapp show "${COMMON_ARGS[@]}" &>/dev/null; then
+            # Subsequent deploys — just roll the image
+            az containerapp update "${COMMON_ARGS[@]}" --image "$IMG"
+          else
+            # First deploy — full create
+            az containerapp create \
+              "${COMMON_ARGS[@]}" \
+              --environment "${{ vars.CONTAINER_APP_ENV }}" \
+              --image "$IMG" \
+              --registry-server "${{ vars.ACR_NAME }}.azurecr.io" \
+              --registry-username "$ACR_USER" \
+              --registry-password "$ACR_PASS" \
+              --target-port 8000 \
+              --ingress external \
+              --min-replicas 0 \
+              --max-replicas 3 \
+              --cpu 1.0 \
+              --memory 2.0Gi \
+              --secrets "feast-pg-password=${PG_PASS}" "decision-log-dsn=${DSN}" \
+              --env-vars \
+                "MLFLOW_TRACKING_URI=mlruns" \
+                "MLFLOW_CHAMPION_RUN_ID=9c599d91d7c546df82ad252837990c29" \
+                "MLFLOW_CHALLENGER_RUN_ID=cd2da7878fd44ad39dab091dde2984fb" \
+                "FEAST_REPO_PATH=/app/feature_repo" \
+                "FEAST_ONLINE_STORE_HOST=${PG_FQDN}" \
+                "FEAST_ONLINE_STORE_PORT=5432" \
+                "FEAST_ONLINE_STORE_USER=fraudadmin" \
+                "FEAST_ONLINE_STORE_SSLMODE=require" \
+                "FRAUD_THRESHOLD_REVIEW=0.50" \
+                "FRAUD_THRESHOLD_DECLINE=0.90" \
+                "FEAST_POSTGRES_PASSWORD=secretref:feast-pg-password" \
+                "DECISION_LOG_DSN=secretref:decision-log-dsn"
+          fi
+
+      - name: Print staging URL
+        run: |
+          FQDN=$(az containerapp show \
+            --name "${{ env.APP_STAGING }}" \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --query "properties.configuration.ingress.fqdn" -o tsv)
+          echo "Staging URL: https://$FQDN"
+          echo "Set STAGING_URL=https://$FQDN in GitHub Actions variables for smoke tests."
+
+# ── Smoke tests ────────────────────────────────────────────────────────────────
+  smoke-test:
+    name: Smoke Test Staging
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: vars.AZURE_CLIENT_ID != '' && vars.STAGING_URL != ''
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test deps
+        run: pip install httpx pytest
+
+      - name: Run live smoke tests against staging
+        env:
+          STAGING_URL: ${{ vars.STAGING_URL }}
+        run: pytest tests/integration/test_api_live.py -v
+
+# ── Promote to production (human approval gate — Rule 7) ──────────────────────
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: smoke-test
+    environment: production  # GitHub environment: requires a named reviewer before proceeding
+    if: vars.AZURE_CLIENT_ID != ''
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Promote staging image to production
+        run: |
+          az containerapp update \
+            --name "${{ env.APP_PROD }}" \
+            --resource-group "${{ vars.RESOURCE_GROUP }}" \
+            --image "${{ env.IMAGE }}"

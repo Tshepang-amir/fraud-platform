@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Fraud Platform - Interview One-Pager</title>
+  <style>
+    @page { size: A4; margin: 12mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: #17202a;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 9.5pt;
+      line-height: 1.28;
+    }
+    h1 {
+      margin: 0 0 4px;
+      color: #0f3d5e;
+      font-size: 19pt;
+      line-height: 1.05;
+    }
+    h2 {
+      margin: 9px 0 4px;
+      color: #0f3d5e;
+      font-size: 10.5pt;
+      border-bottom: 1px solid #9fb7c9;
+      padding-bottom: 2px;
+    }
+    p { margin: 0 0 5px; }
+    .meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 5px 16px;
+      margin: 6px 0 8px;
+      padding: 7px 8px;
+      background: #eef5f8;
+      border-left: 4px solid #0f6a8a;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 3px 0 5px;
+      font-size: 8.5pt;
+    }
+    th, td {
+      border: 1px solid #c8d5df;
+      padding: 3px 4px;
+      vertical-align: top;
+    }
+    th {
+      background: #e7f0f5;
+      color: #12394f;
+      text-align: left;
+    }
+    code, pre {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 8.5pt;
+    }
+    pre {
+      white-space: pre-wrap;
+      margin: 3px 0 5px;
+      padding: 6px;
+      background: #f5f7f9;
+      border: 1px solid #d7e0e6;
+    }
+    .footer {
+      margin-top: 8px;
+      padding-top: 5px;
+      border-top: 1px solid #9fb7c9;
+      font-weight: bold;
+      color: #0f3d5e;
+    }
+  </style>
+</head>
+<body>
+  <h1>Fraud Platform - Real-Time Card Fraud Scoring</h1>
+  <div class="meta">
+    <div><strong>Candidate:</strong> Tsapang Mashego</div>
+    <div><strong>Role signal:</strong> ML platform / MLOps / fraud risk</div>
+    <div><strong>Stack:</strong> Azure, Databricks, Feast, FastAPI, MLflow</div>
+    <div><strong>Controls:</strong> Airflow approval, Grafana, rollback runbook</div>
+  </div>
+
+  <h2>Problem</h2>
+  <p>Fraud teams need low-latency card scoring with model lineage, drift
+  monitoring, audit logs, and safe promotion controls. A notebook model is not
+  enough; the work is turning it into an observable and governable service.</p>
+
+  <h2>Architecture</h2>
+  <pre>PaySim demo stream -> Event Hubs -> ADLS -> Databricks Bronze/Silver/Gold
+IEEE-CIS training -> feature engineering -> MLflow champion/challenger
+Feast + Postgres -> FastAPI on Azure Container Apps -> Grafana Cloud
+PSI drift -> Airflow retraining DAG -> human approval gate -> promotion</pre>
+
+  <div class="grid">
+    <section>
+      <h2>What Was Built</h2>
+      <table>
+        <tr><th>Area</th><th>Delivery</th></tr>
+        <tr><td>Data</td><td>ADLS zones, Databricks transforms, Gold features</td></tr>
+        <tr><td>Features</td><td>Feast definitions, skew test, Postgres path</td></tr>
+        <tr><td>Models</td><td>LightGBM champion, CatBoost shadow challenger</td></tr>
+        <tr><td>Serving</td><td>Public FastAPI endpoint on Container Apps</td></tr>
+        <tr><td>Monitoring</td><td>OpenTelemetry metrics in Grafana Cloud</td></tr>
+        <tr><td>Governance</td><td>Model card, policy, rollback, approval gate</td></tr>
+      </table>
+    </section>
+
+    <section>
+      <h2>Proof Points</h2>
+      <table>
+        <tr><th>Metric / proof</th><th>Result</th></tr>
+        <tr><td>Champion AUC</td><td>0.9200</td></tr>
+        <tr><td>Champion AUPRC</td><td>0.5833</td></tr>
+        <tr><td>TPR at 0.1% FPR</td><td>0.2903</td></tr>
+        <tr><td>Challenger decision</td><td>KEEP_CHAMPION</td></tr>
+        <tr><td>Live smoke tests</td><td>6/6 passed</td></tr>
+        <tr><td>API-reported p95</td><td>66.85ms direct sample</td></tr>
+      </table>
+    </section>
+  </div>
+
+  <h2>Governance Choice</h2>
+  <p>The model cannot promote itself. A challenger must pass automated metric
+  gates and then wait for <code>fraud_retrain_approval_&lt;run_id&gt; = approved</code>.
+  Automation recommends; a human approves; rollback steps are documented.</p>
+
+  <h2>Business Framing</h2>
+  <p>The portfolio framing is <strong>+23% fraud value caught at fixed 0.1%
+  FPR</strong> versus a stale monthly baseline. This is a scenario-backed
+  portfolio statement, not a claim of production validation on bank traffic.</p>
+
+  <h2>Honest Caveats</h2>
+  <table>
+    <tr><th>Caveat</th><th>Current handling</th></tr>
+    <tr><td>PaySim stream is simulated</td><td>Declared demo seam</td></tr>
+    <tr><td>Feast Azure online table mismatch</td><td>Fallback keeps API available; production fix required</td></tr>
+    <tr><td>External laptop p95 above 100ms</td><td>API-reported scoring latency met target</td></tr>
+    <tr><td>Grafana token exposed during setup</td><td>Rotate before public handoff</td></tr>
+    <tr><td>Airflow UI screenshot pending</td><td>DAG and approval policy implemented</td></tr>
+  </table>
+
+  <div class="footer">
+    Interview narrative: I did not just train a fraud model. I built the platform
+    around it: ingestion, feature consistency, serving, monitoring, governance,
+    and rollback.
+  </div>
+</body>
+</html>

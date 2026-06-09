@@ -1,0 +1,18 @@
+# dbt project configuration — Fraud Platform
+# Silver → Gold SQL transformations on Databricks/Delta Lake
+
+name: "dbt_fraud"
+version: "1.0.0"
+config-version: 2
+
+profile: "dbt_fraud"
+
+model-paths: ["models"]
+test-paths: ["tests"]
+analysis-paths: ["analyses"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"

@@ -1,0 +1,13 @@
+# dbt profiles — Fraud Platform
+# Uses Databricks adapter in production, DuckDB for local testing
+
+dbt_fraud:
+  target: dev
+  outputs:
+    dev:
+      type: databricks
+      catalog: fraud_catalog
+      schema: gold
+      host: "{{ env_var('DBT_DATABRICKS_HOST') }}"
+      http_path: "{{ env_var('DBT_DATABRICKS_HTTP_PATH') }}"
+      token: "{{ env_var('DBT_DATABRICKS_TOKEN') }}"  # From Key Vault at runtime

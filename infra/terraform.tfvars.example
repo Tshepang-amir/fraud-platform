@@ -1,0 +1,10 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is gitignored — never commit it.
+
+subscription_id      = "6ed44d73-c305-4a7f-b5b1-606a22f98490"
+postgres_admin_login = "fraudadmin"
+
+# Your public IP for direct PostgreSQL access from your laptop (optional).
+# Find it at: https://ifconfig.me
+# Leave as "" to allow only Azure services.
+developer_ip = ""

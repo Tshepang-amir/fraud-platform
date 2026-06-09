@@ -1,0 +1,6 @@
+azure-functions
+azure-eventhub
+azure-storage-file-datalake
+azure-identity
+feast[postgres]
+pydantic>=2.6.0

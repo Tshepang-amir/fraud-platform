@@ -1,0 +1,21 @@
+# Feast Feature Store Configuration
+# See: https://docs.feast.dev/reference/feature-store-yaml
+
+project: fraud_platform
+registry: data/registry.db
+provider: local
+
+online_store:
+  type: postgres
+  host: localhost
+  port: 5433  # Docker maps host:5433 → container:5432 (5432 occupied by Windows Postgres service)
+  database: fraud_platform       # same DB as docker-compose
+  db_schema: public              # Feast creates its own tables here
+  user: fraud_user               # matches docker-compose POSTGRES_USER
+  password: ${FEAST_POSTGRES_PASSWORD}  # export FEAST_POSTGRES_PASSWORD=local_dev_only for local dev
+  sslmode: disable               # local dev container has no SSL; production: require
+
+offline_store:
+  type: file  # Local dev: parquet files in data/feast/. Production: ADLS Delta.
+
+entity_key_serialization_version: 3

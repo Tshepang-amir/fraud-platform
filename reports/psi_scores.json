@@ -1,0 +1,11 @@
+{
+  "fe_card_txn_count_1h": 0.01379968315393542,
+  "fe_card_txn_count_24h": 0.012228442821304905,
+  "fe_card_txn_count_7d": 0.04166125832390866,
+  "fe_card_amt_mean_24h": 0.016210120342959634,
+  "fe_card_amt_std_24h": 0.005244537755889399,
+  "fe_card_amt_zscore_24h": 0.002384900888533166,
+  "fe_time_since_last_txn": 0.01692056377167079,
+  "fe_card_entropy_product_7d": 0.151235242460795,
+  "fe_peer_amt_deviation": 0.012345129918019865
+}

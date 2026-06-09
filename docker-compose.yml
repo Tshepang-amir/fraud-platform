@@ -1,0 +1,37 @@
+# Docker Compose — Local development environment
+# Provides Postgres (Feast online store + decision log) and the scoring service
+
+version: "3.9"
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: fraud-postgres
+    environment:
+      POSTGRES_USER: fraud_user
+      POSTGRES_PASSWORD: local_dev_only  # Local dev only — production uses Key Vault
+      POSTGRES_DB: fraud_platform
+    ports:
+      - "5433:5432"  # 5432 is taken by a native Windows Postgres service; use 5433 externally
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fraud_user -d fraud_platform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  scoring-api:
+    build: .
+    container_name: fraud-scoring-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://fraud_user:local_dev_only@postgres:5432/fraud_platform
+      - ENVIRONMENT=development
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

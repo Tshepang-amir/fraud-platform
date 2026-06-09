@@ -1,0 +1,43 @@
+# Runtime serving dependencies — fraud-scorer Docker image.
+# Dev deps (ruff, mypy, pytest, locust) live in pyproject.toml [dev].
+# Training/monitoring deps (evidently, great-expectations) are not needed at serve time.
+# Azure pipeline deps (azure-eventhub, azure-storage-file-datalake) are not needed at serve time.
+
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.6.0
+
+# Models
+lightgbm>=4.3.0
+catboost>=1.2.3
+
+# MLflow — model artifact loading only (not the tracking server UI)
+mlflow>=2.11.0
+
+# Feature store (Feast 0.63 uses psycopg3 internally for Postgres online store)
+feast>=0.63.0
+
+# Data
+pandas>=2.2.0
+numpy>=1.26.0
+scikit-learn>=1.4.0
+
+# Observability
+opentelemetry-api>=1.23.0
+opentelemetry-sdk>=1.23.0
+opentelemetry-instrumentation-fastapi>=0.44b0
+opentelemetry-exporter-otlp-proto-http>=1.23.0
+
+# Azure managed identity (Key Vault access at startup)
+azure-identity>=1.15.0
+azure-keyvault-secrets>=4.8.0
+
+# Database drivers
+# psycopg2-binary: used by decision_log.py (ThreadedConnectionPool)
+# psycopg[binary]:  used by Feast PostgreSQL online store (v3 API)
+psycopg2-binary>=2.9.9
+psycopg[binary]>=3.1.0
+psycopg-pool>=3.2.0
+
+# HTTP client (healthcheck probe + live smoke tests)
+httpx>=0.27.0

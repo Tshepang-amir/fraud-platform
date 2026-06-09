@@ -1,0 +1,32 @@
+# dbt schema tests — data quality gates
+# Not-null, unique, and range tests on Silver and Gold models
+
+version: 2
+
+models:
+  - name: silver_transactions
+    description: "Cleaned and deduped transaction records"
+    columns:
+      - name: transaction_id
+        description: "Unique transaction identifier"
+        tests:
+          - not_null
+          - unique
+
+  - name: gold_fraud_features
+    description: "Engineered features for fraud scoring model"
+    columns:
+      - name: transaction_id
+        description: "Unique transaction identifier"
+        tests:
+          - not_null
+          - unique
+
+  - name: gold_card_stats
+    description: "Aggregated per-card statistics"
+    columns:
+      - name: card_id
+        description: "Card identifier"
+        tests:
+          - not_null
+          - unique
