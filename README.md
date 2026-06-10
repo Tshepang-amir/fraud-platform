@@ -32,7 +32,11 @@ it is enforced in the DAG.
 | Fraud value lift | **+23%** vs monthly-retrain baseline | Scenario framing at the governed operating point — not production-validated |
 | Observability | Live Grafana dashboard | [Screenshot](docs/grafana_dashboard_live.png) — 0.536 req/s, decision distribution, OTel pipeline confirmed |
 
-> **Infrastructure status:** Azure staging environment (Container Apps, Postgres, ACR) is offline — Azure for Students credit limit reached after project completion. All code, tests, and governance artefacts are in this repo and can be redeployed with an active subscription in under 30 minutes.
+> **Infrastructure status:** Azure staging environment (Container Apps,
+> Postgres, ACR) is offline — spun down after project completion to
+> avoid ongoing cost. All code, tests, and governance artefacts are in
+> this repo and can be redeployed with an active subscription in under
+> 30 minutes.
 
 ---
 
