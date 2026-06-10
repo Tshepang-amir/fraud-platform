@@ -18,12 +18,12 @@ Environment variables:
 from __future__ import annotations
 
 import argparse
-from typing import Any
 import json
 import logging
 import os
 import time
 from pathlib import Path
+from typing import Any
 
 from src.ingest.paysim_to_ieee import load_paysim, map_paysim_to_ieee
 
