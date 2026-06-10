@@ -186,15 +186,6 @@ GitHub Actions OIDC CI/CD is scaffolded in [`.github/workflows/cd.yml`](.github/
 
 ---
 
-## Honest Limitations
-
-| Limitation | Detail |
-|------------|--------|
-| Infrastructure offline | Student subscription credits exhausted post-project. Re-deployable with `az containerapp update` once subscription is renewed. |
-| Production validation | The +23% lift is scenario-framing at the governed operating point — not a measured production result. Bank-owned backtesting and model-risk approval required before any real customer impact. |
-| OIDC blocked | GitHub Actions CD is scaffolded; manual `az cli` deploy used because Azure for Students does not support App Registrations. |
-
----
 
 ## Dataset Notice
 
