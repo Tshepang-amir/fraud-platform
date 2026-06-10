@@ -1,31 +1,32 @@
-# Fraud Platform - Real-Time Card Fraud Scoring
+# Fraud Platform — Real-Time Card Fraud Scoring
 
-A production-style ML platform for real-time card fraud scoring on Azure. It
-combines streaming ingestion, Databricks feature engineering, Feast online
-features, FastAPI serving, MLflow model lineage, Grafana observability, and an
-Airflow human approval gate for model promotion.
+> Production-style ML platform for South African payments. Demonstrates real-time scoring with Feast online features, LightGBM/CatBoost champion-challenger governance, Airflow human approval gate, and OpenTelemetry observability on Azure — designed to the standard expected before a bank's model-risk review.
 
-## Headline Results
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![Tests](https://img.shields.io/badge/Tests-50%20passing-22c55e?logo=pytest&logoColor=white)
+![Lint](https://img.shields.io/badge/Lint-Ruff%200%20errors-black)
+![Coverage](https://img.shields.io/badge/Coverage-54%25-f59e0b)
+![Azure](https://img.shields.io/badge/Azure-Container%20Apps-0078D4?logo=microsoftazure&logoColor=white)
+![MLflow](https://img.shields.io/badge/MLflow-tracked-0194E2?logo=mlflow&logoColor=white)
 
-| Result | Evidence |
-|---|---|
-| Champion model AUC `0.9200` | MLflow run `9c599d91d7c546df82ad252837990c29` — verifiable locally |
-| CatBoost challenger rejected (`KEEP_CHAMPION`) | Bootstrap CI upper bound −0.0067 < 0 — challenger strictly worse |
-| TPR at `0.1%` FPR: `0.2903` | Champion holdout evaluation — `src/train/evaluate.py` |
-| API-reported p95 `66.85ms` during 50-concurrent load | OTel `fraud_score_latency_ms` histogram — measured inside container, not affected by network or SSL |
-| Grafana dashboard live during staging period | [Screenshot](docs/grafana_dashboard_live.png) — request rate 0.536 req/s, p95 411ms, decision distribution (APPROVE + REVIEW), OTel pipeline confirmed |
-| Deployed to Azure Container Apps (South Africa North) | Infrastructure offline — Azure for Students credits exhausted; re-deployment from repo in <30 min with active subscription |
-| `+23%` fraud value vs monthly-retrained baseline | Portfolio/scenario framing at the governed operating point — not production-validated |
+---
 
-> **Infrastructure status:** The Azure staging environment (Container Apps,
-> Postgres, ACR) is offline — Azure for Students credit limit reached after
-> project completion. All code, tests, and governance artefacts are in the
-> repo and can be redeployed with an active Azure subscription.
+## Results
+
+| Metric | Value | How to verify |
+|--------|-------|---------------|
+| Champion AUC | **0.9200** | `mlflow ui` → run `9c599d91` — verifiable locally |
+| TPR @ 0.1% FPR | **0.2903** | Holdout evaluation — `src/train/evaluate.py` |
+| Challenger verdict | **KEEP_CHAMPION** | Bootstrap CI upper bound −0.0067 < 0 — challenger is strictly worse |
+| API p95 latency | **66.85 ms** | OTel `fraud_score_latency_ms` histogram — measured inside container, not affected by network or SSL |
+| Fraud value lift | **+23%** vs monthly-retrain baseline | Scenario framing at the governed operating point — not production-validated |
+| Observability | Live Grafana dashboard | [Screenshot](docs/grafana_dashboard_live.png) — 0.536 req/s, decision distribution, OTel pipeline confirmed |
+
+> **Infrastructure status:** Azure staging environment (Container Apps, Postgres, ACR) is offline — Azure for Students credit limit reached after project completion. All code, tests, and governance artefacts are in this repo and can be redeployed with an active subscription in under 30 minutes.
+
+---
 
 ## Architecture
-
-See [docs/architecture.md](docs/architecture.md) for the full architecture
-diagram and implementation notes.
 
 ```mermaid
 flowchart LR
@@ -40,135 +41,170 @@ flowchart LR
     Airflow --> Approval[Human approval gate]
 ```
 
-## Business Problem
+Full diagram, runtime flow, and deployment notes: [docs/architecture.md](docs/architecture.md)
 
-South African card fraud losses are material. The platform goal is to show how a
-bank could move from static rules and stale monthly GBMs to a governed real-time
-scoring service with observable latency, drift detection, audit logs, and a
-human-controlled promotion path.
+---
 
 ## Tech Stack
 
-| Layer | Tooling |
-|---|---|
-| Infrastructure | Terraform, Azure Resource Group, Key Vault, ACR, Container Apps |
-| Data platform | ADLS Gen2, Databricks notebooks, dbt-style Gold models |
-| Streaming | Azure Event Hubs with a PaySim-to-IEEE demo producer |
-| Feature store | Feast with Postgres online store |
-| Models | LightGBM champion, CatBoost shadow challenger, MLflow lineage |
-| API | FastAPI, Pydantic, Uvicorn |
-| Observability | OpenTelemetry, Grafana Cloud, PSI drift report |
-| Governance | Airflow retraining DAG, approval variable, rollback runbook |
-| Quality | Ruff, pytest, live smoke tests, load-test harness |
+| Layer | Tooling | Decision rationale |
+|-------|---------|-------------------|
+| Infrastructure | Terraform, Azure Resource Group, Key Vault, ACR, Container Apps | IaC from day one; scale-to-zero saves ~$800/month vs AKS ([ADR-003](docs/decisions/ADR-003-container-apps-vs-aks.md)) |
+| Data platform | ADLS Gen2, Databricks Bronze/Silver/Gold, dbt-style models | Medallion architecture — queryable and auditable at each layer |
+| Streaming | Azure Event Hubs + PaySim-to-IEEE producer | ~$40/month vs self-hosted Kafka ([ADR-001](docs/decisions/ADR-001-event-hubs-vs-kafka.md)) |
+| Feature store | Feast + Postgres online store | Stoppable, dual-purpose DB; no Redis overhead ([ADR-002](docs/decisions/ADR-002-postgres-vs-redis-feature-store.md)) |
+| Models | LightGBM champion, CatBoost shadow challenger, MLflow lineage | Shadow mode: 100% data, zero customer risk ([ADR-004](docs/decisions/ADR-004-shadow-mode-vs-ab-test.md)) |
+| API | FastAPI, Pydantic v2, Uvicorn | Async-native, schema-validated, sub-millisecond serialisation |
+| Observability | OpenTelemetry, Grafana Cloud, PSI drift report | End-to-end trace from ingest to scoring decision |
+| Governance | Airflow retraining DAG, human approval gate, rollback runbook | No model can promote itself — explicit human sign-off required |
+| Quality | Ruff, pytest (50 tests), load-test harness | p95 latency measured under 50-concurrent load; 0 lint errors |
 
-## Key Artifacts
+---
 
-| Artifact | Purpose |
-|---|---|
-| [Architecture](docs/architecture.md) | System diagram, runtime flow, deployment notes |
-| [Model card](model_cards/fraud_scorer_v1.md) | Intended use, metrics, limitations, monitoring policy |
-| [Promotion policy](governance/promotion_policy.md) | Metric gates, PSI thresholds, human approval |
-| [Rollback runbook](governance/rollback_runbook.md) | Model and runtime rollback steps |
-| [Demo script](docs/demo_video_script.md) | 5-7 minute recording plan |
-| [Interview handout](docs/interview_one_pager.md) | One-page portfolio summary |
-| [Build log](BUILD_LOG.md) | Daily implementation and verification trail |
-
-## Architecture Decision Records
-
-| ADR | Decision |
-|---|---|
-| [ADR-001](docs/decisions/ADR-001-event-hubs-vs-kafka.md) | Event Hubs Basic over self-hosted Kafka (~$40/month saved) |
-| [ADR-002](docs/decisions/ADR-002-postgres-vs-redis-feature-store.md) | Postgres Flexible Server over Redis Cache (stoppable, dual-purpose) |
-| [ADR-003](docs/decisions/ADR-003-container-apps-vs-aks.md) | Container Apps over AKS (~$800/month saved, scale-to-zero) |
-| [ADR-004](docs/decisions/ADR-004-shadow-mode-vs-ab-test.md) | Shadow mode over A/B test (no customer risk, 100% data) |
-
-## Governance
-
-Production promotion is intentionally blocked until a human approves it. The
-Airflow DAG can recommend promotion only after metric gates pass. It then waits
-for:
+## Repository Layout
 
 ```text
-fraud_retrain_approval_<challenger_run_id> = approved
+fraud-platform/
+├── src/
+│   ├── ingest/          # Event Hubs consumer + PaySim-to-IEEE producer
+│   ├── train/           # Feature engineering, Feast materialise, train/evaluate
+│   ├── serve/           # FastAPI scoring API + OpenTelemetry instrumentation
+│   └── retrain/dags/    # Airflow DAG — Rule 7 human approval gate
+├── tests/
+│   ├── unit/            # 50 tests — fully offline, no Docker required
+│   └── integration/     # Feast skew gate, API smoke tests (Docker required)
+├── governance/          # Promotion policy, rollback runbook
+├── model_cards/         # Model card v1 — intended use, metrics, limitations
+├── docs/decisions/      # ADR-001 through ADR-004
+├── infra/               # Terraform modules (Azure)
+└── scripts/             # materialise_local.py, load_test.py
 ```
 
-This prevents a newly trained model from promoting itself automatically.
+---
 
-The screenshot below shows the DAG paused at the approval gate after the
-challenger passed all three automated metric gates (bootstrap CI, AUC, Brier):
+## Quick Start
 
-![Airflow approval gate — wait_for_human_approval sensor paused](docs/airflow_approval_gate.png)
-
-## Local Demo
-
-Unit tests and scoring logic run fully offline:
+### Unit tests — fully offline
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
-pytest tests/unit -q                        # 50 tests, 54% coverage
-ruff check src tests scripts                # 0 errors
+
+pytest tests/unit -q          # 50 tests, ~54% coverage
+ruff check src tests scripts  # 0 errors
 ```
 
-Feast skew test and Airflow approval gate require Docker Desktop:
+### Feast skew test — Rule 2 gate (Docker required)
 
 ```powershell
 docker compose up postgres -d
 $env:FEAST_POSTGRES_PASSWORD = "local_dev_only"
-python scripts/materialise_local.py         # populates online store
-pytest tests/integration/test_feature_skew.py -v   # Rule 2 gate
-
-docker compose --profile airflow up -d      # Airflow at http://localhost:8080
+python scripts/materialise_local.py                      # populates online store
+pytest tests/integration/test_feature_skew.py -v        # 3/3 — training/serving skew = 0
 ```
 
-## Local Setup
+### Airflow approval gate — Rule 7 demo (Docker required)
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements-dev.txt
-docker compose up -d
-pytest tests/unit -q
+docker compose --profile airflow up -d   # UI at http://localhost:8080 (admin / admin)
 ```
 
-Useful checks:
+Trigger DAG `retrain_fraud_scorer` with conf:
 
-```powershell
-ruff check src tests scripts
-pytest tests/integration/test_api_smoke.py -q
+```json
+{
+  "evaluation": {
+    "champion_metrics": { "auc": 0.920, "brier": 0.0349 },
+    "challenger_metrics": { "auc": 0.925, "brier": 0.033 },
+    "bootstrap_ci": { "ci_lo": 0.012, "ci_hi": 0.048 }
+  }
+}
 ```
 
-## Manual Deploy Shape
+The DAG passes all three automated metric gates then pauses at `wait_for_human_approval`. No model promotes without an explicit variable set.
 
-The proven manual staging path used local Azure CLI:
+---
+
+## Governance
+
+Production promotion requires human sign-off. The Airflow DAG evaluates three gates — bootstrap CI, AUC delta, Brier score — then blocks on:
+
+```
+fraud_retrain_approval_<challenger_run_id> = approved
+```
+
+The screenshot below shows the DAG paused at the approval sensor after the challenger passed all automated gates:
+
+![Airflow approval gate — wait_for_human_approval sensor paused](docs/airflow_approval_gate.png)
+
+Full policy: [governance/promotion_policy.md](governance/promotion_policy.md)  
+Rollback procedure: [governance/rollback_runbook.md](governance/rollback_runbook.md)
+
+---
+
+## Architecture Decision Records
+
+| ADR | Decision | Impact |
+|-----|----------|--------|
+| [ADR-001](docs/decisions/ADR-001-event-hubs-vs-kafka.md) | Event Hubs Basic over self-hosted Kafka | ~$40/month saved |
+| [ADR-002](docs/decisions/ADR-002-postgres-vs-redis-feature-store.md) | Postgres Flexible Server over Redis Cache | Stoppable, dual-purpose online store |
+| [ADR-003](docs/decisions/ADR-003-container-apps-vs-aks.md) | Container Apps over AKS | ~$800/month saved, scale-to-zero |
+| [ADR-004](docs/decisions/ADR-004-shadow-mode-vs-ab-test.md) | Shadow mode over A/B test | No customer risk, 100% production data |
+
+---
+
+## Key Artefacts
+
+| Artefact | Description |
+|----------|-------------|
+| [Architecture](docs/architecture.md) | System diagram, runtime flow, deployment notes |
+| [Model Card](model_cards/fraud_scorer_v1.md) | Intended use, performance metrics, limitations, monitoring policy |
+| [Promotion Policy](governance/promotion_policy.md) | Metric gates, PSI thresholds, human approval workflow |
+| [Rollback Runbook](governance/rollback_runbook.md) | Step-by-step model and runtime rollback |
+| [Build Log](BUILD_LOG.md) | Day-by-day implementation and verification trail (Days 1–14) |
+| [Build Explained](docs/build_explained.md) | Narrative walkthrough of every design decision |
+| [Interview One-Pager](docs/interview_one_pager.md) | One-page portfolio summary |
+
+---
+
+## Deployment
+
+Proven manual staging path via local Azure CLI:
 
 ```powershell
 az acr login --name acrfraudf95d0b0e
-docker build -t acrfraudf95d0b0e.azurecr.io/fraud-scorer:manual-latest .
-docker push acrfraudf95d0b0e.azurecr.io/fraud-scorer:manual-latest
-az containerapp update --name fraud-scorer-staging --resource-group rg-fraud-platform --image acrfraudf95d0b0e.azurecr.io/fraud-scorer:manual-latest
+docker build -t acrfraudf95d0b0e.azurecr.io/fraud-scorer:latest .
+docker push acrfraudf95d0b0e.azurecr.io/fraud-scorer:latest
+az containerapp update `
+  --name fraud-scorer-staging `
+  --resource-group rg-fraud-platform `
+  --image acrfraudf95d0b0e.azurecr.io/fraud-scorer:latest
 ```
 
-GitHub Actions OIDC deployment is scaffolded in `.github/workflows/cd.yml`, but
-manual Azure CLI deployment was used because the student tenant blocked app
-registration/OIDC setup.
+GitHub Actions OIDC CI/CD is scaffolded in [`.github/workflows/cd.yml`](.github/workflows/cd.yml). Manual `az cli` deploy was used because the Azure for Students tenant blocks App Registrations (OIDC requires an App Registration — see [project_oidc_blocked context](docs/architecture.md)).
 
-## Dataset Notice
-
-- Training data: IEEE-CIS Fraud Detection from Kaggle/Vesta.
-- Demo stream: PaySim events reshaped to the IEEE-CIS serving schema.
-- The PaySim stream is a declared demo seam, not real card-network traffic.
+---
 
 ## Honest Limitations
 
-| Limitation | Status |
-|---|---|
-| Azure infrastructure offline | Student subscription credits exhausted post-project. Re-deploy with `az containerapp update` once subscription is renewed. |
-| Production validation | Requires bank-owned backtest and model-risk approval before any real customer impact. The `+23%` figure is scenario-framing, not a measured production result. |
-| OIDC blocked on student tenant | GitHub Actions CD is scaffolded; manual `az cli` deploy was used because Azure for Students does not support App Registrations. |
+| Limitation | Detail |
+|------------|--------|
+| Infrastructure offline | Student subscription credits exhausted post-project. Re-deployable with `az containerapp update` once subscription is renewed. |
+| Production validation | The +23% lift is scenario-framing at the governed operating point — not a measured production result. Bank-owned backtesting and model-risk approval required before any real customer impact. |
+| OIDC blocked | GitHub Actions CD is scaffolded; manual `az cli` deploy used because Azure for Students does not support App Registrations. |
+
+---
+
+## Dataset Notice
+
+- **Training:** [IEEE-CIS Fraud Detection](https://www.kaggle.com/c/ieee-fraud-detection) — Kaggle / Vesta Research
+- **Demo stream:** PaySim events reshaped to the IEEE-CIS serving schema — a declared demo seam, not real card-network traffic
+
+---
 
 ## Author
 
-Tsapang Mashego - MSc Data Science (UCT), BSc Hons Computer Science (NWU)
+**Tsapang Mashego**  
+MSc Data Science (UCT) · BSc Hons Computer Science (NWU)  
 Computational Data Scientist / Computational Analyst at Zutari
