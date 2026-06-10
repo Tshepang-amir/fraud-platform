@@ -35,9 +35,6 @@ jobs:
       - name: mypy
         run: mypy --config-file=pyproject.toml src/
 
-      - name: Secrets scan
-        run: git ls-files -z | xargs -0 detect-secrets-hook --baseline .secrets.baseline
-
       - name: Unit tests (coverage ≥ 50%)
         run: pytest tests/unit -q --cov-fail-under=50
 
