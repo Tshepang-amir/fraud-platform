@@ -1047,7 +1047,7 @@ OIDC setup steps documented inline in cd.yml header. Required GitHub variables:
 - Added `azurerm_container_app.fraud_scorer` resource:
   - `revision_mode = "Single"`, `identity { type = "SystemAssigned" }`
   - ACR pull via admin credentials stored as Container Apps secret `acr-password`
-  - Sensitive values as secrets: `feast-pg-password`, `decision-log-dsn` (DSN constructed from locals)
+  - Sensitive values as secrets: `feast-pg-password`, `decision-log-dsn` (DSN constructed from locals)  # pragma: allowlist secret
   - Non-sensitive env vars hardcoded: thresholds, MLflow run IDs, Feast connection params
   - Secret refs in env: `FEAST_POSTGRES_PASSWORD=secretref:feast-pg-password`, `DECISION_LOG_DSN=secretref:decision-log-dsn`
   - Liveness probe: `GET /health:8000`, initial_delay=10s, period=15s
