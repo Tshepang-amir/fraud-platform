@@ -45,4 +45,3 @@ def test_reject_when_calibration_regresses() -> None:
 
 def test_approval_variable_name_is_safe_for_airflow() -> None:
     assert approval_variable_name("run/id:123") == "fraud_retrain_approval_run_id_123"
-

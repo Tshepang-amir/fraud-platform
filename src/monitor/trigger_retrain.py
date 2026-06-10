@@ -30,9 +30,7 @@ def load_psi_scores(path: Path = DEFAULT_PSI_PATH) -> dict[str, float]:
 def features_requiring_retrain(psi_scores: dict[str, float]) -> dict[str, float]:
     """Return features whose PSI status is retrain."""
     return {
-        feature: value
-        for feature, value in psi_scores.items()
-        if psi_status(value) == "retrain"
+        feature: value for feature, value in psi_scores.items() if psi_status(value) == "retrain"
     }
 
 
@@ -154,4 +152,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
