@@ -33,9 +33,9 @@ _SERVICE_NAME = os.getenv("OTEL_SERVICE_NAME", "fraud-scorer")
 
 # Module-level meter — initialised after configure_telemetry() is called
 _meter: metrics.Meter | None = None
-_fraud_score_histogram: metrics.Histogram | None = None  # type: ignore[type-arg]
-_latency_histogram: metrics.Histogram | None = None  # type: ignore[type-arg]
-_decision_counter: metrics.Counter | None = None  # type: ignore[type-arg]
+_fraud_score_histogram: metrics.Histogram | None = None
+_latency_histogram: metrics.Histogram | None = None
+_decision_counter: metrics.Counter | None = None
 
 
 def configure_telemetry() -> None:

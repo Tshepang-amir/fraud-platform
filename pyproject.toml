@@ -144,6 +144,11 @@ module = [
     "sklearn.*",
     "matplotlib",
     "matplotlib.*",
+    "psycopg2",
+    "psycopg2.*",
+    "airflow",
+    "airflow.*",
+    "opentelemetry.exporter.*",
 ]
 ignore_missing_imports = true
 

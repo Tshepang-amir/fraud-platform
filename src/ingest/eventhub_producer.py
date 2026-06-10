@@ -18,6 +18,7 @@ Environment variables:
 from __future__ import annotations
 
 import argparse
+from typing import Any
 import json
 import logging
 import os
@@ -163,7 +164,7 @@ def replay(
 
 def _send_batch(
     producer: object,
-    records: list[dict],
+    records: list[dict[str, Any]],
     dry_run: bool,
 ) -> int:
     if dry_run:
