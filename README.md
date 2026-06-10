@@ -1,6 +1,16 @@
 # Fraud Platform — Real-Time Card Fraud Scoring
 
-> Production-style ML platform for South African payments. Demonstrates real-time scoring with Feast online features, LightGBM/CatBoost champion-challenger governance, Airflow human approval gate, and OpenTelemetry observability on Azure — designed to the standard expected before a bank's model-risk review.
+Real-time card fraud scoring deployed on Azure South Africa North.
+AUC 0.920 · p95 66ms · 6/6 smoke tests passing · public endpoint live.
+
+Trained on IEEE-CIS production data (590k transactions, 3.5% fraud rate).
+Served via FastAPI on Container Apps with a Feast online feature store,
+point-in-time correct feature retrieval, and a shadow challenger running
+on every request without touching the live decision path.
+
+No model reaches production without passing PSI drift gates and a
+human approval step in Airflow. That is not a portfolio claim —
+it is enforced in the DAG.
 
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 ![Tests](https://img.shields.io/badge/Tests-50%20passing-22c55e?logo=pytest&logoColor=white)
